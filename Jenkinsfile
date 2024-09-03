@@ -56,27 +56,29 @@ pipeline {
             }
         }
 
-        stage("Build & Push Docker Image") {
-            steps {
-                script {
-                    withCredentials([usernamePassword(credentialsId: 'dockerhub', usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
-                        docker.withRegistry('https://index.docker.io/v1/', 'dockerhub') {
-                            docker_image = docker.build("${IMAGE_NAME}")
-                            docker_image.push("${IMAGE_TAG}")
-                            docker_image.push('latest')
-                        }
-                    }
+       stage("Build & Push Docker Image") {
+    steps {
+        script {
+            withCredentials([usernamePassword(credentialsId: 'dockerhub', usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
+                docker.withRegistry('https://index.docker.io/v1/', 'dockerhub') {
+                    docker_image = docker.build("${IMAGE_NAME}")
+                    docker_image.push("${IMAGE_TAG}")
+                    docker_image.push('latest')
                 }
             }
         }
+    }
+}
+
 
         stage("Trivy Scan") {
-            steps {
-                script {
-                    sh "docker run -v /var/run/docker.sock:/var/run/docker.sock aquasec/trivy image ${IMAGE_NAME}:latest --no-progress --scanners vuln --exit-code 0 --severity HIGH,CRITICAL --format table"
-                }
-            }
+    steps {
+        script {
+            sh "docker run -v /var/run/docker.sock:/var/run/docker.sock aquasec/trivy image ${IMAGE_NAME}:latest --no-progress --scanners vuln --exit-code 0 --severity HIGH,CRITICAL --format table"
         }
+    }
+}
+
 
         stage("Cleanup Artifacts") {
             steps {
