@@ -56,14 +56,24 @@ pipeline {
             }
         }
 
-       stage("Build & Push Docker Image") {
+      stage("Build & Push Docker Image") {
     steps {
         script {
             withCredentials([usernamePassword(credentialsId: 'dockerhub', usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
-                docker.withRegistry('https://index.docker.io/v1/', 'dockerhub') {
-                    docker_image = docker.build("${IMAGE_NAME}")
-                    docker_image.push("${IMAGE_TAG}")
-                    docker_image.push('latest')
+                echo "Docker User: ${DOCKER_USER}"
+                echo "Docker Image: ${IMAGE_NAME}"
+                
+                try {
+                    docker.withRegistry('https://index.docker.io/v1/', 'dockerhub') {
+                        docker_image = docker.build("${IMAGE_NAME}")
+                        echo "Built Docker Image: ${IMAGE_NAME}"
+                        docker_image.push("${IMAGE_TAG}")
+                        echo "Pushed Docker Image Tag: ${IMAGE_TAG}"
+                        docker_image.push('latest')
+                        echo "Pushed Docker Image Tag: latest"
+                    }
+                } catch (Exception e) {
+                    error "Docker Build and Push Failed: ${e.message}"
                 }
             }
         }
@@ -71,13 +81,20 @@ pipeline {
 }
 
 
+
         stage("Trivy Scan") {
     steps {
         script {
-            sh "docker run -v /var/run/docker.sock:/var/run/docker.sock aquasec/trivy image ${IMAGE_NAME}:latest --no-progress --scanners vuln --exit-code 0 --severity HIGH,CRITICAL --format table"
+            echo "Running Trivy Scan on Image: ${IMAGE_NAME}:latest"
+            try {
+                sh "docker run -v /var/run/docker.sock:/var/run/docker.sock aquasec/trivy image ${IMAGE_NAME}:latest --no-progress --scanners vuln --exit-code 0 --severity HIGH,CRITICAL --format table"
+            } catch (Exception e) {
+                error "Trivy Scan Failed: ${e.message}"
+            }
         }
     }
 }
+
 
 
         stage("Cleanup Artifacts") {
